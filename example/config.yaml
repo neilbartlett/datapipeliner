@@ -1,0 +1,56 @@
+sources:
+  example_source:
+    file: raw/products*.csv
+    kwargs:
+      usecols:
+        - items
+        - prices
+        - inventory
+      index_col: items
+
+sinks:
+  example_sink:
+    file: output/*_processed.csv
+    kwargs:
+      index: false
+
+pipelines:
+  example_pipeline:
+
+    - type: transform
+      function: add_to_col
+      tag: price
+      kwargs:
+        col_name: prices
+        val: 1.5
+      staging:
+        desc: Adds $1.5 to column 'prices'
+        exmsg: Couldn't add to 'prices'.
+
+    - type: transform
+      function: add_to_col
+      tag: value
+      kwargs:
+        col_name: prices
+        val: 2
+      staging:
+        desc: Adds $2 to column 'prices'
+        exmsg: Couldn't add to 'prices'.
+
+    - type: transform
+      function: add_to_col
+      tag: atag btag price
+      kwargs:
+        col_name: prices
+        val: 3
+      staging:
+        desc: Adds $3 to column 'prices'
+        exmsg: Couldn't add to 'prices'.
+
+    - type: pdpipe
+      function: ColDrop
+      tag: notatag
+      kwargs:
+        columns: inventory
+      staging:
+        exraise: false
