@@ -3,16 +3,15 @@ datapipeliner
 
 dvc-ready data pipelines
 
-
 Provides data pipelines that are especially suited to incoporation into DVC.
 Allows model and data processing experiment production support.
 
-The `datapipeliner` package reads input data, generates pipeline stages, and writes
-output data entirely from the information supplied in a YAML configuration file. In
-addition, custom-made or module-specific functions may be wrapped into pipeline stages
-as specified in the YAML. Keyword arguments to such functions are also specified in
-YAML, which sidesteps the problem of hard coding parameters into numerous `*.py` files
-for different datasets, each slightly different than the last.
+Data pipelines are described by a YAML configuration file. The pipelines can be parameterized
+by tags names. These can be programatically controlled via a dvc params.yaml file - which allows
+for data processing experiements to be integrated into a dvc experiment.
+
+The YAML file can describe standard pdpipe stages as well as custom stages defined
+in a .py file. Parameters to the stages are defined in the YAML file.
 
 
 Installation
@@ -30,7 +29,7 @@ optional dependency for `verify_all`-, `verify_any`-, and `engarde`-type stages.
 Details
 -------
 
-All aspects of a pipeline are defined in `config.yaml`. This file contains information
+The pipeline is defined in `config.yaml`. This file contains information
 about `sources`, files from which the data is drawn, `pipelines` and their stages, and
 the `sinks`, files to which the transformed data is written. Custom-made functions may
 be defined in a standard `*.py` file/module, which must take a `pandas.DataFrame` as
@@ -38,9 +37,9 @@ input and return a `pandas.DataFrame` as output. Pipeline stages are generated f
 these custom functions by specifying them and their keyword arguments in `config.yaml`.
 
 The file `config.yaml` controls all aspects of the pipeline, from data discovery, to
-pipeline stages, to data output. If the environment variable `PDPIPEWRENCHDIR` is not
+pipeline stages, to data output. If the environment variable `DATAPIPELINERDIR` is not
 specified, then then it will be set to the current working directory. The file
-`config.yaml` should be put in the `PDPIPEWRENCHDIR`, and data to be processed should be
+`config.yaml` should be put in the `DATAPIEPLINEDIR`, and data to be processed should be
 in that directory or its subdirectories.
 
 Example
@@ -60,7 +59,7 @@ The directory structure of this example is as follows:
             products_storeB_processed.csv
 
 The contents of `config.yaml` is as follows (paths are relative to the location of
-`config.yaml`, i.e. the `PDPIPEWRENCHDIR`):
+`config.yaml`, i.e. the `DATAPIPELINERDIR`):
 
     sources:
       example_source:
@@ -81,6 +80,7 @@ The contents of `config.yaml` is as follows (paths are relative to the location 
 
       - type: transform
           function: add_to_col
+          tag: add
           kwargs:
             col_name: prices
             val: 1.5
@@ -97,6 +97,7 @@ The contents of `config.yaml` is as follows (paths are relative to the location 
 
         - type: verify_all
           check: high_enough
+          tag: verify
           kwargs:
             col_name: prices
             val: 19
@@ -187,6 +188,26 @@ that the `val` argument was `21` instead of `19`:
     AssertionError: ('high_enough not true for all',
     prices  items        
     foo      20.5)
+
+
+Direct Dataframe Injection
+==========================
+
+Additionally is is possible to call the pipeline directly with a data 
+
+
+    import custom_functions
+    import datapipeliner as dpp
+    import pandas as pd
+
+    tags =  'add;verify'
+
+    df_in = pd.read_csv("myfile.csv")
+
+    # generate the pipeline from `config.yaml`.
+    line = dpp.Line("example_pipeline", custom_functions, tags)
+
+    df_out= line.runDataFrame(df_in)
 
 Provenance
 ==========

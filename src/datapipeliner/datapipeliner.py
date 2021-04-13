@@ -334,7 +334,40 @@ class Source:
             self.dfs.append(read_csv(self.files[index], **self.kwargs))
         else:
             for file in self.files:
+                print("Readingf xcscv in datapiepliner")
                 self.dfs.append(read_csv(file, **self.kwargs))
+        return self.dfs
+
+class DataFrameSource(Source):
+#    def __init__(self, df):
+#        """
+#        Data source for pipelines, built from `config.yaml`.
+#
+#        Parameters
+##        ----------
+#
+#        `name: int, str`: The key that identifies the source in `config.yaml`.
+#        """
+#
+#        self.df = df
+#
+#    def draw(self, index: int = None) -> List[DataFrame]:
+#        """
+#        Draws data the data frames
+#
+#        Parameters
+#        ----------
+#
+#        `index: int, default None`: Draw all source files by default. If `index` is
+#        specified, then only draw from the file specified by `index`.
+#        """
+#
+#        return List[self.df]    
+#
+    def __init__(self, df):
+        self.dfs = [df]
+
+    def draw(self, index: int = None) -> List[DataFrame]:
         return self.dfs
 
 
@@ -467,6 +500,8 @@ class Line:
     if the externally supplied is empty then all modules are run. If a module does not have a tag
     or a tags entry it is always run. This allow external control such as dvc to parameterize a pipeline.
 
+    Also allows for a pipeline to be called direcly from a dataframe with output to a data frame
+
 
     Parameters
     ----------
@@ -548,6 +583,25 @@ class Line:
     drains it to `snk`. The returns `dfs_in` and `dfs_out` show that came in from `src`
     and what went to `snk`. In addition to `line.run()`, the first `n` stages of the
     pipeline can be tested on file `m` from the source with `line.test(m,n)`.
+
+
+    Also allows for dataframe running:
+
+        import custom_functions
+        import datapipeliner as dpp
+
+        # optional tags
+        tags="atag;btag;ctag"
+        
+        line = dpp.Line("example_pipeline", custom_functions, tags)
+
+        # optional build of the pipeline 
+        pipeline = line.build()
+        print(pipeline)
+        # run the pipeline on the dataframe
+        # if the pipeline has not been built it will automatically be built.
+        df_out = line.runDataFrame(df_in)
+
     """
 
     stage_getters: ClassVar = {
@@ -588,7 +642,7 @@ class Line:
                 #print("found tag:", stage_config["tag"].as_str())
                 stage_tags = stage_config["tag"].as_str_seq()
             #print("stage_tags:", stage_tags)
-            if len(stage_tags) == 0 or len(tags)!=0 and any(item in tags for item in stage_tags):
+            if len(tags) == 0 or (len(tags) != 0 and len(stage_tags)==0) or any(item in tags for item in stage_tags):
                 #print("len tags:", len(tags))
                 #print("len stage_tags:", len(stage_tags))
                 #print("any tags:", any(item in tags for item in stage_tags))
@@ -603,8 +657,9 @@ class Line:
         Builds the pipeline based on stages found in `config.yaml`.
         """
 
-        self.pipeline = pdp.PdPipeline([stage for stage in self.stages])
-        self.built = True
+        if not self.built:
+            self.pipeline = pdp.PdPipeline([stage for stage in self.stages])
+            self.built = True
 
         return self.pipeline
 
@@ -661,8 +716,6 @@ class Line:
         and drains the resulting dataframes to the sink files.
         """
 
-        print("Local Version:")
-
         dfs = [self.run_one(source_idx=i) for i in range(0, len(self.source.dfs))]
 
         if len(self.source.files) > 1 and len(self.sink.files) == 1:
@@ -673,3 +726,17 @@ class Line:
 
         self.sink.drain()
         return self.sink.dfs
+
+    def runDataFrame(self, df_in: DataFrame, to_stage: int = None) -> DataFrame: 
+        """
+        Runs the pipeline. Draws from df_in and returns a dataframe with the pipeline applied
+        """
+        if not self.built:
+            self.build()
+
+        if to_stage is not None:
+            to_stage = max(1, min(to_stage, len(self.stages)))
+        else:
+            to_stage = len(self.stages)
+
+        return self.pipeline[0:to_stage].apply(df_in)

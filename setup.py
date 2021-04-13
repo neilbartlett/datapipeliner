@@ -8,7 +8,7 @@ with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name="datapipeliner",
-    version="0.1.0",
+    version="0.1.6",
     description="dvc-ready data pipelines.",
     long_description=long_description,
     long_description_content_type='text/markdown',
